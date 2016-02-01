@@ -1,0 +1,40 @@
+# A sensible Rubocop override for people who ACTUALLY write code and don't just theorycraft on how
+# it SHOULD be written. At least, IMHO.
+# jeremy.moles@damballa.com
+
+# http://c2.com/cgi/wiki?AbcMetric
+# A calculated magnitude based on number of assignments, branches, and conditions.
+Metrics/AbcSize:
+  Enabled: false
+  # Max: 15
+
+# A complexity metric that is strongly correlated to the number of test cases needed to validate a
+# method.
+Metrics/CyclomaticComplexity:
+  Enabled: false
+  # Max: 6
+
+# https://github.com/bbatsov/ruby-style-guide#short-methods
+Metrics/MethodLength:
+  Enabled: false
+  # Max: 10
+
+# A complexity metric geared towards measuring complexity for a human reader.
+Metrics/PerceivedComplexity:
+  Enabled: false
+  # Max: 7
+
+# https://github.com/bbatsov/ruby-style-guide#80-character-limits
+Metrics/LineLength:
+  Enabled: true
+  # Max: 80
+  Max: 100
+
+# https://github.com/bbatsov/rubocop/issues/1964
+Style/RedundantBegin:
+  Enabled: false
+
+Style/Documentation:
+  Description: 'Document classes and non-namespace modules.'
+  Enabled: false
+ 

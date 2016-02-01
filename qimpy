@@ -1,0 +1,56 @@
+#!/usr/bin/env ruby
+# vimrun! ruby % -i
+
+# @todo REMOVE THIS!
+$LOAD_PATH << File.expand_path('../lib', __FILE__)
+
+require 'qimpy'
+require 'optparse'
+require 'ostruct'
+
+options = OpenStruct.new
+parser = OptionParser.new do |opts|
+  opts.on('-r', '--read PATH', 'read the specified file at PATH') { |o| options.read = o }
+  opts.on('-w', '--write PATH', 'write the specified file at PATH') { |o| options.write = o }
+  opts.on('-m', '--mode MODE', 'MODE for read/write') { |o| options.mode = o }
+  opts.on('-s', '--size SIZE', 'SIZE (in bytes) of read/write operations') { |o| o.bsize = o }
+  opts.on('--interactive', 'run inside Pry') { options.interactive = true }
+end
+
+args = parser.parse!
+qimpy = Qimpy::Connection.new
+
+# Read the file specified as the argument.
+if options.read
+  qimpy.file_open(options.read, options.mode || 'r') do |read|
+    puts "#{read.readall}"
+  end
+
+# Write the file specified as the argument, using ARGV[1] or $stdin as the input source.
+elsif options.write
+  input = args.empty? ? $stdin : open(args.first, 'r')
+
+  qimpy.file_open(options.write, options.mode || 'w') do |write|
+    loop do
+      data = input.read options.bsize || 1024
+
+      break if data.nil?
+
+      write.write data
+    end
+  end
+
+  input.close unless input == $stdin
+
+# Play with Qimpy using Pry. :)
+elsif options.interactive
+  require 'pry'
+
+  # rubocop:disable all
+  binding.pry
+  # rubocop:enable all
+
+# Otherwise, print the help.
+else
+  puts parser.help
+end
