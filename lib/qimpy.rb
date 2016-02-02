@@ -1,12 +1,5 @@
-# vimrun! ruby /home/cubicool/projects/github/qimpy/qimpy
-#
-# QEMU Machine Protocol
-
-# http://wiki.qemu.org/QMP
-# /usr/share/doc/qemu/qmp-commands.txt
-
-# @todo: MAKE ALL OF THE RESPONSE-HANDLINE ASYNCHRONOUS! This is so basic! Perhaps this means
-#   creating a Qimpy::Connection and Qimpy::ASyncConnection, or something.
+# @todo: MAKE ALL OF THE RESPONSE-HANDLING ASYNCHRONOUS! This is so basic! Perhaps this means
+# creating a Qimpy::Connection and Qimpy::ASyncConnection, or something.
 
 require 'socket'
 require 'io/wait'
@@ -14,11 +7,13 @@ require 'base64'
 require 'json'
 
 module Qimpy
-  class Error < RuntimeError; end
+  class Error < StandardError; end
 
   # @todo: Somehow make this in instance within the Connection?
   # @todo: puts, gets, etc?
   class File
+    DEFAULT_COUNT = 1024
+
     attr_reader :path
 
     def initialize(connection, path, mode)
@@ -51,15 +46,15 @@ module Qimpy
     end
 
     # @todo: Add :binary mode.
-    def readall(mode = :text)
+    def readall(count = nil, mode = :text)
       fail NotImplementedError unless mode == :text
 
       # When :binary mode is implemented, this will likely be a different kind of object.
       data = ''
 
-      # Decode up to 256 bytes at a time, appending the result to data.
+      # Decode up to 'count' bytes at a time, appending the result to data.
       loop do
-        r = read 256
+        r = read(count || DEFAULT_COUNT)
 
         data += Base64.decode64(r['buf-b64'])
 
@@ -74,6 +69,9 @@ module Qimpy
   end
 
   class Connection
+    DEFAULT_PATH = '/tmp/qga.sock'
+    DEFAULT_SYNCID = 311_411
+
     attr_accessor :sock
     attr_reader :info
 
@@ -81,14 +79,16 @@ module Qimpy
     Info = Struct.new :version, :supported_commands
 
     # Default path is the popular path used in QEMU documentation.
-    def initialize(path = '/tmp/qga.sock', sync_id = 311_411)
-      @sock = UNIXSocket.open path
+    def initialize(path = nil, syncid = nil)
+      @sock = UNIXSocket.open path || DEFAULT_PATH
 
       # Clear out any leftover data (if there is any).
       @sock.gets if @sock.ready?
 
       # Synchronize our connection.
-      fail IOError, "couldn't sync connection" unless execute('sync', id: sync_id) == sync_id
+      syncid ||= DEFAULT_SYNCID
+
+      fail IOError, "couldn't sync connection" unless execute('sync', id: syncid) == syncid
 
       # Issue a 'guest-info' command and store the results in our custom structures. This data will
       # be used later to verify the success/failure of subsequent executions.
@@ -115,18 +115,11 @@ module Qimpy
       # Read back result.
       json = JSON.load @sock.gets
 
-      # @todo: Make the error-handling controllable; does the user want 1:1 exception matching, or
-      # is it acceptable to simply wrap everything in a RuntimeError?
       if json.include? 'error'
         cls = json['error']['class']
         desc = json['error']['desc']
 
-        # @todo: Find the Rubocop error for eval.
-        # rubocop:disable all
-        eval "class #{cls} < RuntimeError; end"
-
-        fail eval("#{cls}"), desc
-        # rubocop:enable all
+        fail Error, "#{desc} [#{cls}]"
       end
 
       json['return']

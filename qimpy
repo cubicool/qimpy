@@ -10,15 +10,18 @@ require 'ostruct'
 
 options = OpenStruct.new
 parser = OptionParser.new do |opts|
-  opts.on('-r', '--read PATH', 'read the specified file at PATH') { |o| options.read = o }
-  opts.on('-w', '--write PATH', 'write the specified file at PATH') { |o| options.write = o }
-  opts.on('-m', '--mode MODE', 'MODE for read/write') { |o| options.mode = o }
-  opts.on('-s', '--size SIZE', 'SIZE (in bytes) of read/write operations') { |o| o.bsize = o }
+  opts.on('--socket PATH', 'the unix domain socket PATH') { |o| options.path = o }
+  opts.on('--syncid ID', 'a unique ID to sync this connection instance') { |o| options.syncid = o }
+  opts.on('--read PATH', 'read the specified file at PATH') { |o| options.read = o }
+  opts.on('--write PATH', 'write the specified file at PATH') { |o| options.write = o }
+  opts.on('--mode MODE', 'MODE for read/write') { |o| options.mode = o }
+  opts.on('--size SIZE', 'SIZE (in bytes) of read/write operations') { |o| o.bsize = o }
   opts.on('--interactive', 'run inside Pry') { options.interactive = true }
+  opts.on('--ping', 'ping the agent instance') { options.ping = true }
 end
 
 args = parser.parse!
-qimpy = Qimpy::Connection.new
+qimpy = Qimpy::Connection.new options.path, options.syncid.to_i
 
 # Read the file specified as the argument.
 if options.read
@@ -41,6 +44,10 @@ elsif options.write
   end
 
   input.close unless input == $stdin
+
+# Ping the agent over the connection and return a shell-style boolean.
+elsif options.ping
+  !(qimpy.ping == {})
 
 # Play with Qimpy using Pry. :)
 elsif options.interactive
